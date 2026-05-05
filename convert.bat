@@ -7,7 +7,7 @@ REM   playwright install chromium
 REM
 REM Edit the variables below to match your setup.
 
-set CREDS=motorsport-calendar.json
+set CREDS=calendarcred.json
 set CALENDAR=primary
 set YEAR=2026
 set SEASON=2025-26

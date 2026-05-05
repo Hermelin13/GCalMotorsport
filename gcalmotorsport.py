@@ -56,7 +56,7 @@ def _session() -> requests.Session:
 
 def fetch_f1_races(year: int) -> list[dict]:
     """Fetch F1 race schedule from the Jolpica (Ergast successor) API."""
-    print(f"\n[F1] Fetching {year} schedule from Jolpica API …")
+    print(f"F1: fetching {year} schedule")
     url = f"https://api.jolpica.com/ergast/f1/{year}/races.json?limit=30"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
@@ -90,7 +90,7 @@ def fetch_f1_races(year: int) -> list[dict]:
             "color":      COLOR_F1,
         })
 
-    print(f"[F1] Found {len(events)} races.")
+    print(f"F1: {len(events)} races found")
     return events
 
 
@@ -108,7 +108,7 @@ def fetch_wec_races(year: int) -> list[dict]:
     2. For each race page, find the "ADD TO MY CALENDAR" iCal link ID.
     3. Download the .ics file and extract the Race-session DTSTART.
     """
-    print(f"\n[WEC] Fetching {year} schedule from fiawec.com …")
+    print(f"WEC: fetching {year} schedule")
     sess = _session()
 
     # ── 1. Collect race page URLs ────────────────────────────────────────────
@@ -135,21 +135,21 @@ def fetch_wec_races(year: int) -> list[dict]:
                 seen.add(full)
                 race_urls.append(full)
 
-    print(f"[WEC] Found {len(race_urls)} race page(s).")
+    print(f"WEC: {len(race_urls)} pages found")
     if not race_urls:
         print("[WEC] No race URLs found – the site navigation may have changed.")
 
     events: list[dict] = []
     for race_url in race_urls:
         slug = race_url.rstrip("/").split("/")[-1]
-        print(f"[WEC]   → {slug} …")
+        print(f"WEC: page {slug}")
 
         # ── 2. Find the iCal ID ──────────────────────────────────────────────
         try:
             page_resp = sess.get(race_url, timeout=30)
             page_resp.raise_for_status()
         except Exception as exc:
-            print(f"[WEC]   ✗ Could not fetch race page: {exc}")
+            print(f"WEC: page fetch failed: {slug}")
             continue
 
         page_soup = BeautifulSoup(page_resp.text, "html.parser")
@@ -161,7 +161,7 @@ def fetch_wec_races(year: int) -> list[dict]:
                 break
 
         if not ical_id:
-            print(f"[WEC]   ✗ No iCal link found; skipping.")
+            print(f"WEC: no ical; skip {slug}")
             continue
 
         # ── 3. Download & parse iCal ─────────────────────────────────────────
@@ -170,13 +170,13 @@ def fetch_wec_races(year: int) -> list[dict]:
                 f"{_WEC_BASE}/en/race/calendar/{ical_id}", timeout=30
             )
             ical_resp.raise_for_status()
-        except Exception as exc:
-            print(f"[WEC]   ✗ Could not download iCal ({ical_id}): {exc}")
+        except Exception:
+            print(f"WEC: ical download failed: {ical_id}")
             continue
 
         race_start, race_end, race_name = _parse_wec_ical(ical_resp.content)
         if race_start is None:
-            print(f"[WEC]   ✗ No Race event found in iCal; skipping.")
+            print(f"WEC: no race event in ical; skip {slug}")
             continue
 
         display_name = (
@@ -192,12 +192,9 @@ def fetch_wec_races(year: int) -> list[dict]:
             "start_date":  race_start.strftime("%Y-%m-%d"),
             "color":       COLOR_WEC,
         })
-        print(
-            f"[WEC]   ✓ {display_name} – "
-            f"{race_start.strftime('%Y-%m-%d %H:%M UTC')}"
-        )
+        print(f"WEC: added {display_name} {race_start.strftime('%Y-%m-%d %H:%M UTC')}")
 
-    print(f"[WEC] Processed {len(events)} race(s).")
+    print(f"WEC: {len(events)} races processed")
     return events
 
 
@@ -276,7 +273,7 @@ def fetch_fe_races(season: str) -> list[dict]:
          and find the matching Race-session time.
       3. Convert to UTC datetime (already UTC due to browser timezone).
     """
-    print(f"\n[FE] Fetching {season} schedule with Playwright …")
+    print(f"FE: fetching {season} schedule")
     try:
         from playwright.sync_api import sync_playwright  # type: ignore
     except ImportError:
@@ -324,17 +321,17 @@ def fetch_fe_races(season: str) -> list[dict]:
                     seen.add(full)
                     race_links.append(full)
 
-        print(f"[FE] Found {len(race_links)} race link(s) on calendar page.")
+        print(f"FE: {len(race_links)} links found")
 
         # ── 2. Visit each race page ──────────────────────────────────────────
         for race_url in race_links:
             slug = race_url.rstrip("/").split("/")[-1]   # e.g. "r9-monaco"
-            print(f"[FE]   → {slug} …")
+            print(f"FE: page {slug}")
 
             try:
                 page.goto(race_url, wait_until="networkidle", timeout=90_000)
             except Exception as exc:
-                print(f"[FE]   ✗ Load failed: {exc}")
+                print(f"FE: page load failed: {slug}")
                 continue
 
             # innerText gives the visible text (not raw HTML tags)
@@ -393,7 +390,7 @@ def fetch_fe_races(season: str) -> list[dict]:
                         continue
 
             if race_dt is None:
-                print(f"[FE]   ✗ Race time not found; skipping.")
+                print(f"FE: no race time; skip {slug}")
                 continue
 
             # ── Extract event name ───────────────────────────────────────────
@@ -416,15 +413,12 @@ def fetch_fe_races(season: str) -> list[dict]:
                 "start_date":  race_dt.strftime("%Y-%m-%d"),
                 "color":       COLOR_FE,
             })
-            print(
-                f"[FE]   ✓ {name} – "
-                f"{race_dt.strftime('%Y-%m-%d %H:%M UTC')}"
-            )
+            print(f"FE: added {name} {race_dt.strftime('%Y-%m-%d %H:%M UTC')}")
 
         ctx.close()
         browser.close()
 
-    print(f"[FE] Found {len(events)} race(s).")
+    print(f"FE: {len(events)} races found")
     return events
 
 
@@ -482,14 +476,11 @@ def insert_events(service, calendar_id: str, events: list[dict]) -> dict:
                 timeMin=time_min,
                 timeMax=time_max,
             ).execute()
-            if any(
-                item.get("summary") == ev["summary"]
-                for item in existing.get("items", [])
-            ):
+            if any(item.get("summary") == ev["summary"] for item in existing.get("items", [])):
                 skipped.append(ev["summary"])
                 continue
         except Exception:
-            pass  # if duplicate check fails, still attempt insertion
+            pass
 
         body = {
             "summary":     ev["summary"],
@@ -511,6 +502,7 @@ def insert_events(service, calendar_id: str, events: list[dict]) -> dict:
         except Exception as exc:
             errors.append({"summary": ev["summary"], "error": str(exc)})
 
+    print(f"Inserted: {len(inserted)}; Skipped: {len(skipped)}; Errors: {len(errors)}")
     return {"inserted": inserted, "skipped": skipped, "errors": errors}
 
 
@@ -552,22 +544,82 @@ def main() -> None:
         required=True,
         help="Path to Google service-account JSON credentials file",
     )
+    ap.add_argument(
+        "--once-per-year",
+        action="store_true",
+        help="Only insert events once per year per series (state recorded)",
+    )
+    ap.add_argument(
+        "--state-file",
+        default="gcalmotorsport_state.json",
+        help="Path to JSON file storing last processed year",
+    )
     args = ap.parse_args()
 
     all_events: list[dict] = []
 
+    # load state
+    import os, json as _json
+    state: dict = {}
+    if args.once_per_year and os.path.exists(args.state_file):
+        try:
+            with open(args.state_file, "r", encoding="utf-8") as fh:
+                state = _json.load(fh)
+        except Exception:
+            state = {}
+
     if args.series in ("f1", "all"):
-        all_events.extend(fetch_f1_races(args.year))
+        if args.once_per_year and str(state.get("f1")) == str(args.year):
+            print(f"F1: skipped (already processed {args.year})")
+        else:
+            evs = fetch_f1_races(args.year)
+            all_events.extend(evs)
+            if args.once_per_year:
+                state["f1"] = args.year
 
     if args.series in ("fe", "all"):
-        all_events.extend(fetch_fe_races(args.season))
+        if args.once_per_year and str(state.get("fe")) == str(args.year):
+            print(f"FE: skipped (already processed {args.year})")
+        else:
+            evs = fetch_fe_races(args.season)
+            all_events.extend(evs)
+            if args.once_per_year:
+                state["fe"] = args.year
 
     if args.series in ("wec", "all"):
-        all_events.extend(fetch_wec_races(args.year))
+        if args.once_per_year and str(state.get("wec")) == str(args.year):
+            print(f"WEC: skipped (already processed {args.year})")
+        else:
+            evs = fetch_wec_races(args.year)
+            all_events.extend(evs)
+            if args.once_per_year:
+                state["wec"] = args.year
 
     if not all_events:
-        print("\nNo events to insert.")
+        print("No events to insert.")
         return
+
+    # Filter events to the requested year (useful for FE season strings spanning years)
+    from datetime import datetime as _dt
+    filtered: list[dict] = []
+    for ev in all_events:
+        st = ev.get("start")
+        if isinstance(st, _dt):
+            if st.year == args.year:
+                filtered.append(ev)
+            continue
+        # fallback: try start_date string YYYY-MM-DD
+        sd = ev.get("start_date")
+        if sd:
+            try:
+                y = int(str(sd)[:4])
+                if y == args.year:
+                    filtered.append(ev)
+            except Exception:
+                pass
+
+    print(f"Events found: {len(filtered)} for year {args.year}")
+    all_events = filtered
 
     print(f"\nTotal events to process: {len(all_events)}")
     print("Connecting to Google Calendar API …")
@@ -575,12 +627,21 @@ def main() -> None:
     svc = _gcal_service(args.creds)
     result = insert_events(svc, args.calendar, all_events)
 
-    print("\n══ Summary ══════════════════════════")
-    print(f"  Inserted : {len(result['inserted'])}")
-    print(f"  Skipped  : {len(result['skipped'])}  (already exist)")
-    print(f"  Errors   : {len(result['errors'])}")
-    for err in result["errors"]:
-        print(f"  ✗ {err['summary']}: {err['error']}")
+    print("Summary:")
+    print(f"  Inserted: {len(result['inserted'])}")
+    print(f"  Skipped : {len(result['skipped'])}")
+    print(f"  Errors  : {len(result['errors'])}")
+    for err in result.get("errors", []):
+        print(f"  ERROR: {err.get('summary')}: {err.get('error')}")
+
+    # save state
+    if args.once_per_year:
+        try:
+            with open(args.state_file, "w", encoding="utf-8") as fh:
+                _json.dump(state, fh)
+            print(f"State saved: {args.state_file}")
+        except Exception:
+            print("Failed to save state file.")
 
 
 if __name__ == "__main__":
