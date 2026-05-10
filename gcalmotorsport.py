@@ -31,9 +31,9 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # ── Google Calendar colour IDs ──────────────────────────────────────────────
-COLOR_F1  = "11"   # Tomato  – red
-COLOR_FE  = "5"    # Banana  – yellow
-COLOR_WEC = "10"   # Sage    – green
+COLOR_F1  = "8"    # Basil  – green
+COLOR_FE  = "8"    # Basil  – green
+COLOR_WEC = "8"    # Basil  – green
 
 # ── Shared HTTP session ──────────────────────────────────────────────────────
 def _session() -> requests.Session:
@@ -57,10 +57,22 @@ def _session() -> requests.Session:
 def fetch_f1_races(year: int) -> list[dict]:
     """Fetch F1 race schedule from the Jolpica (Ergast successor) API."""
     print(f"F1: fetching {year} schedule")
-    url = f"https://api.jolpica.com/ergast/f1/{year}/races.json?limit=30"
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    races = resp.json()["MRData"]["RaceTable"]["Races"]
+    primary = f"https://api.jolpica.com/ergast/f1/{year}/races.json?limit=30"
+    fallback = f"https://ergast.com/api/f1/{year}/races.json?limit=30"
+
+    try:
+        resp = requests.get(primary, timeout=30)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"[F1] primary API failed: {exc}. Trying fallback Ergast endpoint...")
+        try:
+            resp = requests.get(fallback, timeout=30)
+            resp.raise_for_status()
+        except requests.RequestException as exc2:
+            print(f"[F1] fallback API failed too: {exc2}")
+            return []
+
+    races = resp.json().get("MRData", {}).get("RaceTable", {}).get("Races", [])
 
     events: list[dict] = []
     for r in races:
