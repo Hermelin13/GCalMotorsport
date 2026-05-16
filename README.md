@@ -14,13 +14,13 @@ playwright install chromium
 - **Run (example for year 2026):**
 
 ```bash
-python gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds rowcalendar-c4af9fb74753.json --calendar primary
+python gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds calendarcred.json --calendar primary
 ```
 
 - **Run once-per-year (script will record processed year):**
 
 ```bash
-python gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds rowcalendar-c4af9fb74753.json --calendar primary --once-per-year
+python gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds calendarcred.json --calendar primary --once-per-year
 ```
 
 **Options (high level)**
@@ -36,7 +36,7 @@ python gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds rowca
 - `--year` controls which events are inserted (all events whose start date has that year). This allows you to pass a FE season like `2025-26` with `--season` while still selecting events for `--year 2026` (or `2025`).
 
 **Credentials & Permissions**
-- Use a Google service account JSON. Place it next to the script and point `--creds` to it (e.g. `rowcalendar-c4af9fb74753.json`).
+- Use a Google service account JSON. Place it next to the script and point `--creds` to it (e.g. `calendarcred.json`).
 - Share the target Google Calendar with the service account email (grant "Make changes to events").
 - Security: keep the JSON private. If the key leaks, rotate/delete it in Google Cloud Console.
 
@@ -52,7 +52,7 @@ Windows Task Scheduler — minimal example (powershell):
 
 ```powershell
 # Run daily at 03:00
-schtasks /Create /SC DAILY /TN "GCalMotorsport" /TR "C:\Python39\python.exe C:\path\to\GCalMotorsport\gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds C:\path\to\rowcalendar-c4af9fb74753.json --calendar primary --once-per-year" /ST 03:00
+schtasks /Create /SC DAILY /TN "GCalMotorsport" /TR "C:\Python39\python.exe C:\path\to\GCalMotorsport\gcalmotorsport.py --series all --year 2026 --season 2025-26 --creds C:\path\to\calendarcred.json --calendar primary --once-per-year" /ST 03:00
 ```
 
 **Troubleshooting**
