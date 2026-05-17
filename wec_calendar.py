@@ -52,6 +52,72 @@ def fetch_wec_calendar(year: int) -> List[dict]:
     for link, anchor_text in links:
         title = anchor_text or link.rstrip("/").split("/")[-1].replace("-", " ").title()
 
+        # Try to fetch the event page early so we can prefer the page title (race name)
+        ps = None
+        try:
+            rpage = sess.get(link, timeout=30)
+            rpage.raise_for_status()
+            ps = BeautifulSoup(rpage.text, "html.parser")
+        except Exception:
+            ps = None
+
+        # Prefer structured page title (og:title, twitter:title), <title>, or headings/classed elements
+        if ps is not None:
+            ptitle = None
+
+            # meta property or name
+            for prop in ("og:title", "twitter:title"):
+                tag = ps.find("meta", {"property": prop}) or ps.find("meta", {"name": prop})
+                if tag and tag.get("content"):
+                    ptitle = tag.get("content").strip()
+                    break
+
+            # fallback to document <title>
+            if not ptitle and ps.title and ps.title.string:
+                ptitle = ps.title.string.strip()
+
+            # headings (h1..h3)
+            if not ptitle:
+                best_h = None
+                for tagname in ("h1", "h2", "h3"):
+                    for h in ps.find_all(tagname):
+                        txt = h.get_text(" ", strip=True)
+                        if not txt:
+                            continue
+                        # prefer a heading that's longer than short date-like anchors
+                        if best_h is None or len(txt) > len(best_h):
+                            best_h = txt
+                if best_h:
+                    ptitle = best_h
+
+            # elements whose class or id suggests a title (class contains 'title'|'race'|'event'|'heading')
+            if not ptitle:
+                for tag in ps.find_all(True, attrs={"class": True}):
+                    cls = " ".join(tag.get("class") or [])
+                    if re.search(r"\b(title|race|event|heading|headline)\b", cls, re.I):
+                        txt = tag.get_text(" ", strip=True)
+                        if txt:
+                            ptitle = txt
+                            break
+
+            # Helper to detect date-like strings (e.g. '9 May', 'BEL 9 May')
+            def looks_like_date(s: str) -> bool:
+                if not s:
+                    return False
+                if re.search(r"\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\b", s, re.I):
+                    return True
+                if re.search(r"\b\d{1,2}/\d{1,2}\b", s):
+                    return True
+                return False
+
+            # If the anchor_text looks like a short date (e.g. 'BEL 9 May'), prefer the page title when available
+            if ptitle and (looks_like_date(anchor_text) or len(anchor_text) < 10):
+                title = ptitle
+            else:
+                # otherwise only replace if the page title is meaningfully different from the anchor
+                if ptitle and ptitle.strip() and ptitle.strip().lower() != anchor_text.strip().lower():
+                    title = ptitle
+
         # Try to parse a day+month from anchor text like 'ITA 14 APR' or '14 Apr'
         dt_date = None
         m = re.search(r"(\d{1,2})\s*([A-Za-z]{3,})", anchor_text)
@@ -82,83 +148,65 @@ def fetch_wec_calendar(year: int) -> List[dict]:
             except Exception:
                 dt_date = None
 
-        # If not found, fetch the event page and try to find a <time> or a longer date mention
-        if dt_date is None:
-            try:
-                r = sess.get(link, timeout=30)
-                r.raise_for_status()
-                ps = BeautifulSoup(r.text, "html.parser")
-
-                # 1) Try meta tags commonly used for published/updated dates
-                found = None
-                meta_props = ["article:published_time", "og:updated_time"]
-                meta_names = ["pubdate", "datePublished", "date", "publishdate"]
-                for pname in meta_props:
-                    tag = ps.find("meta", {"property": pname})
+        # If not found yet, try to extract date information from the fetched page (if available)
+        if dt_date is None and ps is not None:
+            # 1) Try meta tags commonly used for published/updated dates
+            found = None
+            meta_props = ["article:published_time", "og:updated_time"]
+            meta_names = ["pubdate", "datePublished", "date", "publishdate"]
+            for pname in meta_props:
+                tag = ps.find("meta", {"property": pname})
+                if tag and tag.get("content"):
+                    found = tag.get("content")
+                    break
+            if not found:
+                for nname in meta_names:
+                    tag = ps.find("meta", {"name": nname})
                     if tag and tag.get("content"):
                         found = tag.get("content")
                         break
-                if not found:
-                    for nname in meta_names:
-                        tag = ps.find("meta", {"name": nname})
-                        if tag and tag.get("content"):
-                            found = tag.get("content")
-                            break
 
-                if found:
-                    try:
-                        dt = datetime.fromisoformat(found)
-                        dt_date = dt.date()
-                    except Exception:
-                        mm = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", found)
-                        if mm:
-                            try:
-                                day = int(mm.group(1))
-                                mon = mm.group(2)[:3].title()
-                                mon_i = months.get(mon)
-                                yr = int(mm.group(3))
-                                if mon_i:
-                                    dt_date = date(yr, mon_i, day)
-                            except Exception:
-                                dt_date = None
-
-                # 2) Fallback: search visible text for a full date with year
-                if dt_date is None:
-                    text = ps.get_text(" ", strip=True)
-                    m2 = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", text)
-                    if m2:
+            if found:
+                try:
+                    dt = datetime.fromisoformat(found)
+                    dt_date = dt.date()
+                except Exception:
+                    mm = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", found)
+                    if mm:
                         try:
-                            day = int(m2.group(1))
-                            mon = m2.group(2)[:3].title()
+                            day = int(mm.group(1))
+                            mon = mm.group(2)[:3].title()
                             mon_i = months.get(mon)
-                            yr = int(m2.group(3))
+                            yr = int(mm.group(3))
                             if mon_i:
                                 dt_date = date(yr, mon_i, day)
                         except Exception:
                             dt_date = None
 
-                # 3) Last resort: look for a related /en/race/ page on the summary and parse its <time>
-                if dt_date is None:
-                    for a2 in ps.find_all("a", href=True):
-                        href2 = a2["href"]
-                        if "/en/race/" in href2 and str(year) in href2:
-                            race_link = href2 if href2.startswith("http") else BASE + href2
-                            try:
-                                r2 = sess.get(race_link, timeout=30)
-                                r2.raise_for_status()
-                                ps2 = BeautifulSoup(r2.text, "html.parser")
-                                ttag2 = ps2.find("time")
-                                if ttag2 and ttag2.get("datetime"):
-                                    try:
-                                        dt = datetime.fromisoformat(ttag2.get("datetime"))
-                                        dt_date = dt.date()
-                                        break
-                                    except Exception:
-                                        pass
-                            except Exception:
-                                continue
-            except Exception:
-                pass
+            # 2) Fallback: search visible text for a full date with year
+            if dt_date is None:
+                text = ps.get_text(" ", strip=True)
+                m2 = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", text)
+                if m2:
+                    try:
+                        day = int(m2.group(1))
+                        mon = m2.group(2)[:3].title()
+                        mon_i = months.get(mon)
+                        yr = int(m2.group(3))
+                        if mon_i:
+                            dt_date = date(yr, mon_i, day)
+                    except Exception:
+                        dt_date = None
+
+            # 3) Last resort: look for a <time datetime="..."> on the page
+            if dt_date is None:
+                ttag = ps.find("time")
+                if ttag and ttag.get("datetime"):
+                    try:
+                        dt = datetime.fromisoformat(ttag.get("datetime"))
+                        dt_date = dt.date()
+                    except Exception:
+                        pass
 
         # attempt to determine event year from URL (preferred) or date
         event_year = None

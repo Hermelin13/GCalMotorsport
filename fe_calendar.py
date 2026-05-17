@@ -8,7 +8,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import List
 
 import requests
@@ -297,6 +298,28 @@ def fetch_fe_calendar(season: str) -> List[dict]:
     return unique
 
 
+def format_iso_to_cz(iso_str: str) -> str:
+    """Format an ISO datetime or date string to Czech numeric format DD.MM.YYYY HH:MM"""
+    if not iso_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except Exception:
+        # try date-only
+        try:
+            y, m, d = map(int, iso_str.split("T")[0].split("-"))
+            dt = datetime(y, m, d)
+        except Exception:
+            return iso_str
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    try:
+        dt_local = dt.astimezone(ZoneInfo("Europe/Prague"))
+    except Exception:
+        dt_local = dt
+    return dt_local.strftime("%d.%m.%Y %H:%M")
+
+
 def fe_events_to_gcal(events: List[dict], color_id: str = "10") -> List[dict]:
     gcal = []
     for ev in events:
@@ -305,13 +328,19 @@ def fe_events_to_gcal(events: List[dict], color_id: str = "10") -> List[dict]:
         if dt_s:
             try:
                 dt = datetime.fromisoformat(dt_s)
-                start = dt.isoformat()
-                end = (dt + timedelta(hours=2)).isoformat()
+                # assume UTC when tzinfo missing, then convert to Europe/Prague
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt_local = dt.astimezone(ZoneInfo("Europe/Prague"))
+                start = dt_local.isoformat()
+                end = (dt_local + timedelta(hours=2)).isoformat()
+                description = ev.get("url") or ""
+                description += "\nDatum: " + format_iso_to_cz(dt_s)
                 gcal.append({
                     "summary": ev.get("summary"),
-                    "start": {"dateTime": start, "timeZone": "UTC"},
-                    "end": {"dateTime": end, "timeZone": "UTC"},
-                    "description": ev.get("url"),
+                    "start": {"dateTime": start, "timeZone": "Europe/Prague"},
+                    "end": {"dateTime": end, "timeZone": "Europe/Prague"},
+                    "description": description,
                     "colorId": color_id,
                 })
                 continue
@@ -326,11 +355,14 @@ def fe_events_to_gcal(events: List[dict], color_id: str = "10") -> List[dict]:
             y, m, day = map(int, d.split("-"))
             start_date = date(y, m, day)
             end_date = (start_date + timedelta(days=1)).isoformat()
+            # all-day: include human-readable Czech date
+            description = ev.get("url") or ""
+            description += "\nDatum: " + start_date.strftime("%d.%m.%Y")
             gcal.append({
                 "summary": ev.get("summary"),
                 "start": {"date": start_date.isoformat()},
                 "end": {"date": end_date},
-                "description": ev.get("url"),
+                "description": description,
                 "colorId": color_id,
             })
         except Exception:
