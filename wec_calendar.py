@@ -338,11 +338,7 @@ if __name__ == "__main__":
     creds = service_account.Credentials.from_service_account_file(args.creds, scopes=["https://www.googleapis.com/auth/calendar"])
     service = build("calendar", "v3", credentials=creds)
 
-    print(f"Ready to upload {len(gcal_events)} events to calendar: {args.calendar_id}")
-    confirm = input("Type YES to proceed: ")
-    if confirm.strip() != "YES":
-        print("Aborted by user.")
-        raise SystemExit(0)
+    print(f"Uploading {len(gcal_events)} events to calendar: {args.calendar_id}")
 
     result = insert_events(service, args.calendar_id, gcal_events, color_id=args.color_id)
     print("Upload summary:")

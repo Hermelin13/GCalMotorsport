@@ -404,12 +404,8 @@ if __name__ == "__main__":
     creds = service_account.Credentials.from_service_account_file(args.creds, scopes=["https://www.googleapis.com/auth/calendar"])
     service = build("calendar", "v3", credentials=creds)
 
-    # Ask user to confirm before uploading (non-interactive scripts should pass --upload and be careful)
-    print(f"Ready to upload {len(gcal_events)} events to calendar: {calid}")
-    confirm = input("Type YES to proceed: ")
-    if confirm.strip() != "YES":
-        print("Aborted by user.")
-        sys.exit(0)
+    # Proceed to upload without interactive confirmation
+    print(f"Uploading {len(gcal_events)} events to calendar: {calid}")
 
     # Insert/update/delete events using GCalVeslo-style logic
     result = insert_events(service, calid, gcal_events)
