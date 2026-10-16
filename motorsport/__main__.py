@@ -16,23 +16,14 @@ def main() -> int:
     dry_run = os.getenv("DRY_RUN", "true").lower() != "false"
     calendar_id = os.getenv("GOOGLE_CALENDAR_ID", "").strip()
     webhook = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
-    changes, failures, events = [], [], []
-    for series in sorted(SERIES):
-        url = os.getenv(f"{series}_ICS_URL", "").strip()
-        if not url:
-            failures.append(f"{series}: chybí {series}_ICS_URL (série nebyla synchronizována)")
-            continue
-        try:
-            found = fetch_ics(series, url)
-            if not found:
-                raise ValueError("feed neobsahuje žádné závody s potvrzeným časem")
-            events += found
-        except Exception as exc:
-            failures.append(f"{series}: {exc}")
+    from .auto_sources import load_all
+    now_year = datetime.now(timezone.utc).year
+    events, failures, pending = load_all({now_year, now_year + 1})
+    changes = []
+    logging.info("Unconfirmed start times (not scheduled): %s", "; ".join(pending) or "none")
     try:
         events += load_overrides(os.getenv("OVERRIDES_FILE", "config/starts.json"))
         events = deduplicate(events)
-        now_year = datetime.now(timezone.utc).year
         # Ignore historical seasons; sync present and next year only.
         events = [e for e in events if e.start.year in {now_year, now_year + 1}]
         if not calendar_id:

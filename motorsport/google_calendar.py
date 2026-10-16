@@ -41,12 +41,18 @@ def ensure_basil(service, calendar_id: str, dry_run: bool = False):
 def event_body(e: RaceEvent, label_id: str, zone="Europe/Prague"):
     start = e.start.astimezone(ZoneInfo(zone))
     end = start + timedelta(hours=2)
+    if e.all_day is not None:
+        start_value = {"date": e.all_day.isoformat()}
+        end_value = {"date": (e.all_day + timedelta(days=1)).isoformat()}
+    else:
+        start_value = {"dateTime": start.isoformat(), "timeZone": zone}
+        end_value = {"dateTime": end.isoformat(), "timeZone": zone}
     return {
         "id": e.stable_id,
         "summary": e.title,
-        "description": f"Série: {e.series}\nOficiální/publikovaný zdroj: {e.source}\nZobrazená délka: 2 h od startu (ne skutečná délka závodu).",
-        "start": {"dateTime": start.isoformat(), "timeZone": zone},
-        "end": {"dateTime": end.isoformat(), "timeZone": zone},
+        "description": f"Série: {e.series}\nOficiální/publikovaný zdroj: {e.source}\nZobrazení: jeden celý den (pokud není čas závodu potvrzen) nebo 2 h od startu.",
+        "start": start_value,
+        "end": end_value,
         "eventLabelId": label_id,
         "extendedProperties": {"private": {"motorsport_sync": "v2", "race_key": f"{e.series}:{e.key}"}},
     }
@@ -88,11 +94,11 @@ def synchronize(service, calendar_id, events, dry_run=False, zone="Europe/Prague
         body = event_body(e, label, zone)
         old = existing.get(e.stable_id)
         if old is None:
-            changes.append(f"➕ {body['summary']} ({body['start']['dateTime']})")
+            changes.append(f"➕ {body['summary']} ({body['start'].get('dateTime', body['start'].get('date'))})")
             if not dry_run:
                 service.events().insert(calendarId=calendar_id, body=body, eventLabelVersion=1).execute()
         elif changed(old, body):
-            changes.append(f"🔄 {body['summary']}: {old.get('start', {}).get('dateTime', '?')} → {body['start']['dateTime']}")
+            changes.append(f"🔄 {body['summary']}: {old.get('start', {}).get('dateTime', old.get('start', {}).get('date', '?'))} → {body['start'].get('dateTime', body['start'].get('date'))}")
             if not dry_run:
                 # PATCH does not remove attendees/custom user-owned properties.
                 patch = {k: v for k, v in body.items() if k != "id"}

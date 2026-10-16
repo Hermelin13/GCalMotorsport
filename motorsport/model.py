@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, date
 import hashlib
 
 @dataclass(frozen=True)
@@ -9,6 +9,7 @@ class RaceEvent:
     title: str
     start: datetime
     source: str
+    all_day: date | None = None
 
     def __post_init__(self):
         if self.start.tzinfo is None or self.start.utcoffset() is None:

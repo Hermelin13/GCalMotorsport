@@ -26,10 +26,5 @@ jobs:
           GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
           GOOGLE_CREDENTIALS_B64: ${{ secrets.GOOGLE_CREDENTIALS_B64 }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          F1_ICS_URL: ${{ vars.F1_ICS_URL }}
-          FORMULA_E_ICS_URL: ${{ vars.FORMULA_E_ICS_URL }}
-          WEC_ICS_URL: ${{ vars.WEC_ICS_URL }}
-          NURBURGRING_ICS_URL: ${{ vars.NURBURGRING_ICS_URL }}
-          DAYTONA_ICS_URL: ${{ vars.DAYTONA_ICS_URL }}
           DRY_RUN: 'false'
         run: python -m motorsport
