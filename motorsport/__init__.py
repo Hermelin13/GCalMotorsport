@@ -1,0 +1,1 @@
+"""Motorsport calendar synchronization."""

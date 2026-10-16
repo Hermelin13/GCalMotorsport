@@ -1,0 +1,35 @@
+name: Motorsport calendar sync
+on:
+  schedule:
+    - cron: '17 7 1 * *' # UTC, every first day of month
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: motorsport-calendar-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Synchronize
+        env:
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+          GOOGLE_CREDENTIALS_B64: ${{ secrets.GOOGLE_CREDENTIALS_B64 }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          F1_ICS_URL: ${{ vars.F1_ICS_URL }}
+          FORMULA_E_ICS_URL: ${{ vars.FORMULA_E_ICS_URL }}
+          WEC_ICS_URL: ${{ vars.WEC_ICS_URL }}
+          NURBURGRING_ICS_URL: ${{ vars.NURBURGRING_ICS_URL }}
+          DAYTONA_ICS_URL: ${{ vars.DAYTONA_ICS_URL }}
+          DRY_RUN: 'false'
+        run: python -m motorsport
