@@ -44,8 +44,8 @@ def test_formula_e_double_header_all_day():
     races = formula_e_from_json(sample, 'https://source', 2026)
     assert len(races) == 2
     assert races[0].all_day.isoformat() == '2026-05-02'
-    assert event_body(races[0], 'basil')['start'] == {'date': '2026-05-02'}
-    assert event_body(races[0], 'basil')['end'] == {'date': '2026-05-03'}
+    assert event_body(races[0])['start'] == {'date': '2026-05-02'}
+    assert event_body(races[0])['end'] == {'date': '2026-05-03'}
 
 
 class FakeResponse:

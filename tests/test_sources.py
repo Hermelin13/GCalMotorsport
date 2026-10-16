@@ -23,8 +23,9 @@ def test_all_day_skipped():
 
 def test_event_is_two_hours_and_stable():
     e = RaceEvent('F1', '2027:monaco:race', 'Monaco Race', datetime(2027, 6, 6, 13, tzinfo=timezone.utc), 'https://example.com')
-    data = event_body(e, 'uuid')
-    assert data['eventLabelId'] == 'uuid'
+    data = event_body(e)
+    assert data['colorId'] == '10'
+    assert 'eventLabelId' not in data
     assert data['start']['dateTime'].startswith('2027-06-06T15:00')
     assert data['end']['dateTime'].startswith('2027-06-06T17:00')
     assert len(deduplicate([e, e])) == 1

@@ -45,7 +45,7 @@ Viz `.env.example`. Pět `*_ICS_URL` už **není potřeba**. `OVERRIDES_FILE` z�
 
 - F1 importuje 4 požadované typy sessions; ostatní šampionáty pouze hlavní závod.
 - F1 a WEC mají **2 hodiny od startu**; Formula E, Daytona a Nürburgring jsou **celodenní pouze v den závodu**.
-- Google Calendar štítek `Basil` se používá přes `eventLabelId` a `eventLabelVersion=1`.
+- Události používají klasickou zelenou barvu Basil (`colorId=10`). Nevyžadují správu štítků ani práva vlastníka.
 - Identita událostí je deterministická; existující spravované události se upravují namísto duplikování.
 - Při žádné změně a bez chyby Discord nic neposílá. Při změnách nebo chybách odešle shrnutí.
 - Automatické mazání se záměrně neprovádí, aby výpadek zdroje nezničil už zapsaný kalendář.
@@ -73,3 +73,15 @@ Nekommitujte `.env`, Google JSON klíče, tokeny ani Discord webhook. Závislost
 - Celodenní událost používá `start.date` a `end.date` následujícího dne (Google Calendar API vyžaduje exkluzivní konec). Zobrazuje se pouze jediný den.
 - Pro Daytonu/Nürburgring je **sobota pravidlem pro 24h start z víkendu**, nikoliv zveřejněným přesným časem. Pokud pořadatel změní den hlavního závodu, parser je nutné aktualizovat.
 - Nové sezóny Formula E v MotoDB se objeví teprve po jejich zveřejnění v daném zdroji; nepoužívá se odhad data.
+
+
+### Pokud se objeví `403 owner access`
+
+Při zápisu událostí skript vyžaduje pouze oprávnění upravovat události v cílovém kalendáři. Pokud se objeví `403`, ověřte service account a `GOOGLE_CALENDAR_ID`.
+
+
+
+### Barva Basil
+
+Události používají `colorId=10` (Basil) bez potřeby dalších GitHub variables.
+
