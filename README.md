@@ -61,10 +61,6 @@ python -m pytest -q
 python -m motorsport
 ```
 
-## Bezpečnost
-
-Nekommitujte `.env`, Google JSON klíče, tokeny ani Discord webhook. Závislosti a skript používají jen HTTPS. Přístup k účtu je omezen oprávněním přiděleným service accountu. Doporučeno vytvořit samostatný kalendář pro motorsport.
-
 ### Celodenní závody (bez času startu)
 
 - Formula E: MotoDB, jedna celodenní událost za každý závod/round (včetně dvojitých závodů).
@@ -74,14 +70,4 @@ Nekommitujte `.env`, Google JSON klíče, tokeny ani Discord webhook. Závislost
 - Pro Daytonu/Nürburgring je **sobota pravidlem pro 24h start z víkendu**, nikoliv zveřejněným přesným časem. Pokud pořadatel změní den hlavního závodu, parser je nutné aktualizovat.
 - Nové sezóny Formula E v MotoDB se objeví teprve po jejich zveřejnění v daném zdroji; nepoužívá se odhad data.
 
-
-### Pokud se objeví `403 owner access`
-
-Při zápisu událostí skript vyžaduje pouze oprávnění upravovat události v cílovém kalendáři. Pokud se objeví `403`, ověřte service account a `GOOGLE_CALENDAR_ID`.
-
-
-
-### Barva Basil
-
-Události používají `colorId=10` (Basil) bez potřeby dalších GitHub variables.
 
